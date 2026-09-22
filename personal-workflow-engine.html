@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BAD-D Personal Workflow Engine</title>
+<style>
+:root{--bg:#0b0d10;--panel:#14181d;--panel2:#1b2128;--text:#eef2f6;--muted:#98a3ad;--line:#2a323b;--good:#6ee7a0;--warn:#ffd166;--bad:#ff6b6b}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.tag{color:var(--good);font-size:12px;font-weight:700;letter-spacing:.08em}.grid{display:grid;grid-template-columns:1.3fr .7fr;gap:14px;margin-top:14px}@media(max-width:800px){.grid{grid-template-columns:1fr}}section,.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}@media(max-width:600px){.stats{grid-template-columns:repeat(2,1fr)}}.stat{background:var(--panel2);padding:12px;border-radius:10px}.stat b{display:block;font-size:22px}.muted{color:var(--muted)}button,input,textarea,select{font:inherit}button{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:9px 12px;border-radius:9px;cursor:pointer}button:hover{border-color:#596572}.primary{background:#dce7f0;color:#111;border-color:#dce7f0}.danger{border-color:#713b3b;color:#ff9b9b}.row{display:flex;gap:8px;flex-wrap:wrap}.field{margin:10px 0}.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}input,textarea,select{width:100%;background:#0f1317;border:1px solid var(--line);color:var(--text);border-radius:9px;padding:10px}textarea{min-height:100px;resize:vertical}.idea{padding:10px;border:1px solid var(--line);border-radius:10px;margin-top:8px}.idea h4{margin:0 0 5px}.pill{display:inline-block;font-size:11px;border:1px solid var(--line);border-radius:20px;padding:3px 7px;color:var(--muted);margin-right:4px}.bar{height:8px;background:#0b0d10;border-radius:9px;overflow:hidden}.bar i{display:block;height:100%;background:var(--good);width:0}.ok{color:var(--good)}.warn{color:var(--warn)}.bad{color:var(--bad)}footer{margin-top:14px;color:var(--muted);font-size:12px}
+</style>
+</head>
+<body>
+<main>
+<div class="top"><div><div class="tag">DEVICE-LOCAL • SELF-CLEANING</div><h1>Personal Workflow Engine</h1><div class="muted">Turn each use into useful progress without letting metadata become digital junk.</div></div><div class="row"><button id="newSession" class="primary">Start productive session</button><button id="clean" class="danger">Clean now</button></div></div>
+
+<div class="stats" style="margin-top:14px">
+<div class="stat"><span class="muted">Ideas</span><b id="ideaCount">0</b></div>
+<div class="stat"><span class="muted">Active tasks</span><b id="taskCount">0</b></div>
+<div class="stat"><span class="muted">Stored data</span><b id="storage">0 KB</b></div>
+<div class="stat"><span class="muted">Session</span><b id="session">Idle</b></div>
+</div>
+
+<div class="grid">
+<section>
+<h2>Capture → Shape → Test → Keep</h2>
+<div class="field"><label>What are you working on?</label><input id="title" placeholder="e.g. mobile RAM control / new music concept"></div>
+<div class="field"><label>Raw idea or observation</label><textarea id="body" placeholder="Capture the useful thought. Messy is fine."></textarea></div>
+<div class="row"><select id="type"><option>Concept</option><option>Bug</option><option>Experiment</option><option>Workflow</option><option>Music</option><option>Question</option></select><button id="save" class="primary">Save useful item</button></div>
+<div id="ideas"></div>
+</section>
+
+<section>
+<h2>Memory governor</h2>
+<p class="muted">The app treats storage as a budget, not an infinite landfill.</p>
+<div class="field"><label>Persistent-data budget</label><select id="budget"><option value="524288">512 KB</option><option value="1048576" selected>1 MB</option><option value="2097152">2 MB</option><option value="5242880">5 MB</option></select></div>
+<div class="bar"><i id="usageBar"></i></div>
+<p id="health" class="ok">Storage healthy.</p>
+<ul class="muted">
+<li>Deduplicates repeated captures.</li>
+<li>Caps history and removes oldest low-value metadata first.</li>
+<li>Temporary session data expires automatically.</li>
+<li>No network, account, analytics, or cloud storage required.</li>
+</ul>
+<div class="row"><button id="export">Export my useful data</button><button id="importBtn">Import backup</button><input id="file" type="file" accept="application/json" hidden></div>
+</section>
+</div>
+
+<section style="margin-top:14px">
+<h2>Workflow queue</h2>
+<div class="row"><input id="taskInput" placeholder="Next concrete action" style="flex:1;min-width:220px"><button id="addTask">Add task</button></div>
+<div id="tasks"></div>
+</section>
+
+<footer>Design principle: preserve user-created value; aggressively discard generated noise. Cleaning never deletes exported backups.</footer>
+</main>
+<script>
+const KEY='badd_personal_workflow_v1';
+const MAX_ITEMS=500, SESSION_TTL=1000*60*60*8;
+let db={items:[],tasks:[],session:null,settings:{budget:1048576}};
+function load(){try{db={...db,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{};db.items=db.items||[];db.tasks=db.tasks||[];db.settings=db.settings||{budget:1048576};if(db.session&&Date.now()-db.session.started>SESSION_TTL)db.session=null;clean(false);render()}
+function persist(){localStorage.setItem(KEY,JSON.stringify(db));clean(false);render()}
+function size(){return new Blob([JSON.stringify(db)]).size}
+function clean(show=true){
+ const before=size();
+ const cutoff=Date.now()-1000*60*60*24*30;
+ db.items=db.items.filter(x=>!x.temp||x.created>cutoff);
+ const seen=new Set();
+ db.items=db.items.filter(x=>{const k=(x.title+'|'+x.body).trim().toLowerCase();if(seen.has(k))return false;seen.add(k);return true});
+ db.items.sort((a,b)=>b.created-a.created);
+ if(db.items.length>MAX_ITEMS)db.items=db.items.slice(0,MAX_ITEMS);
+ let budget=Number(db.settings.budget||1048576);
+ while(size()>budget&&db.items.length)db.items.pop();
+ db.tasks=db.tasks.slice(0,200);
+ localStorage.setItem(KEY,JSON.stringify(db));
+ if(show) alert('Cleanup complete. Removed '+Math.max(0,Math.round((before-size())/1024))+' KB of local metadata.');
+ render();
+}
+function render(){
+ document.getElementById('ideaCount').textContent=db.items.length;
+ document.getElementById('taskCount').textContent=db.tasks.filter(x=>!x.done).length;
+ const s=size();document.getElementById('storage').textContent=(s/1024).toFixed(1)+' KB';
+ document.getElementById('session').textContent=db.session?'Active':'Idle';
+ document.getElementById('budget').value=String(db.settings.budget);
+ const pct=Math.min(100,s/db.settings.budget*100);document.getElementById('usageBar').style.width=pct+'%';
+ const h=document.getElementById('health');h.className=pct>85?'bad':pct>65?'warn':'ok';h.textContent=pct>85?'Near budget — cleanup is active.':pct>65?'Growing — low-value metadata will be pruned.':'Storage healthy.';
+ document.getElementById('ideas').innerHTML=db.items.slice(0,30).map(x=>'<div class="idea"><h4>'+esc(x.title||'Untitled')+'</h4><span class="pill">'+esc(x.type)+'</span><span class="muted">'+new Date(x.created).toLocaleString()+'</span><p>'+esc(x.body)+'</p></div>').join('');
+ document.getElementById('tasks').innerHTML=db.tasks.map((x,i)=>'<div class="idea"><label><input type="checkbox" '+(x.done?'checked':'')+' onchange="toggleTask('+i+')"> '+esc(x.text)+'</label></div>').join('');
+}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function toggleTask(i){db.tasks[i].done=!db.tasks[i].done;persist()}
+document.getElementById('newSession').onclick=()=>{db.session={started:Date.now(),id:crypto.randomUUID?.()||String(Date.now())};persist()}
+document.getElementById('clean').onclick=()=>clean(true);
+document.getElementById('save').onclick=()=>{const title=document.getElementById('title').value.trim(),body=document.getElementById('body').value.trim();if(!body)return;db.items.unshift({id:crypto.randomUUID?.()||String(Date.now()),title,body,type:document.getElementById('type').value,created:Date.now()});document.getElementById('body').value='';persist()};
+document.getElementById('addTask').onclick=()=>{const v=document.getElementById('taskInput').value.trim();if(!v)return;db.tasks.unshift({text:v,done:false,created:Date.now()});document.getElementById('taskInput').value='';persist()};
+document.getElementById('budget').onchange=e=>{db.settings.budget=Number(e.target.value);persist();clean(false)};
+document.getElementById('export').onclick=()=>{const blob=new Blob([JSON.stringify(db,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='personal-workflow-backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)};
+document.getElementById('importBtn').onclick=()=>document.getElementById('file').click();
+document.getElementById('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!Array.isArray(x.items)||!Array.isArray(x.tasks))throw 0;db={...db,...x};persist();alert('Backup imported and normalized.')}catch{alert('Invalid workflow backup.')}};r.readAsText(f)};
+window.addEventListener('visibilitychange',()=>{if(document.hidden)clean(false)});
+load();
+</script>
+</body>
+</html>
