@@ -98,7 +98,8 @@ document.getElementById('importBtn').onclick=()=>document.getElementById('file')
 function isObjectRecord(value){return value!==null&&typeof value==='object'&&!Array.isArray(value)}
 function isValidWorkflowItem(x){return isObjectRecord(x)&&typeof x.title==='string'&&typeof x.body==='string'&&typeof x.type==='string'&&Number.isFinite(x.created)&&(!('id'in x)||typeof x.id==='string')&&(!('temp'in x)||typeof x.temp==='boolean')}
 function isValidWorkflowTask(x){return isObjectRecord(x)&&typeof x.text==='string'&&typeof x.done==='boolean'&&(!('created'in x)||Number.isFinite(x.created))}
-function isValidWorkflowBackup(x){return isObjectRecord(x)&&Array.isArray(x.items)&&x.items.every(isValidWorkflowItem)&&Array.isArray(x.tasks)&&x.tasks.every(isValidWorkflowTask)}
+function isValidWorkflowSettings(x){return isObjectRecord(x)&&[524288,1048576,2097152,5242880].includes(x.budget)}
+function isValidWorkflowBackup(x){return isObjectRecord(x)&&Array.isArray(x.items)&&x.items.every(isValidWorkflowItem)&&Array.isArray(x.tasks)&&x.tasks.every(isValidWorkflowTask)&&(!('settings'in x)||isValidWorkflowSettings(x.settings))}
 document.getElementById('file').onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{try{const x=JSON.parse(r.result);if(!isValidWorkflowBackup(x))throw 0;db={...db,...x};persist();alert('Backup imported and normalized.')}catch{alert('Invalid workflow backup.')}};r.readAsText(f)};
 window.addEventListener('visibilitychange',()=>{if(document.hidden)clean(false)});
 load();

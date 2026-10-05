@@ -81,7 +81,7 @@ function importBackup(app, backup) {
   file.onchange({ target: file });
 }
 
-test('rejects malformed nested records without changing the current backup', async (t) => {
+test('rejects malformed backup records without changing the current backup', async (t) => {
   const valid = {
     items: [{ id: 'imported', title: 'Imported', body: 'Text', type: 'Concept', created: 10 }],
     tasks: [{ text: 'Imported task', done: false, created: 10 }],
@@ -94,6 +94,11 @@ test('rejects malformed nested records without changing the current backup', asy
     ['null task', { ...valid, tasks: [null] }],
     ['array task', { ...valid, tasks: [[]] }],
     ['task with non-boolean completion state', { ...valid, tasks: [{ text: 'x', done: 'false' }] }],
+    ['null settings', { ...valid, settings: null }],
+    ['array settings', { ...valid, settings: [] }],
+    ['settings missing budget', { ...valid, settings: {} }],
+    ['settings with non-numeric budget', { ...valid, settings: { budget: '1048576' } }],
+    ['settings with unsupported budget', { ...valid, settings: { budget: 0 } }],
   ];
 
   for (const [name, backup] of cases) {
@@ -126,4 +131,19 @@ test('imports an export-shaped backup containing valid item and task records', (
   assert.equal(app.stored().tasks[0].text, 'Run the experiment');
   assert.ok(app.alerts.includes('Backup imported and normalized.'));
   assert.ok(app.element('ideas').innerHTML.includes('New capture'));
+});
+
+test('imports a legacy backup without settings and keeps the current settings', () => {
+  const app = createApp();
+  const backup = {
+    items: [{ id: 'legacy-item', title: 'Legacy capture', body: 'Useful note', type: 'Concept', created: 12345 }],
+    tasks: [{ text: 'Review the note', done: false, created: 12346 }],
+  };
+
+  importBackup(app, backup);
+
+  assert.equal(app.stored().items[0].id, 'legacy-item');
+  assert.equal(app.stored().tasks[0].text, 'Review the note');
+  assert.deepEqual(app.stored().settings, { budget: 1048576 });
+  assert.ok(app.alerts.includes('Backup imported and normalized.'));
 });
