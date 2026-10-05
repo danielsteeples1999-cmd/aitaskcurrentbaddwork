@@ -12,15 +12,17 @@ The page saves its data in the browser's local storage. Keep using the same brow
 
 ## Capture ideas and manage tasks
 
-- In **Capture → Shape → Test → Keep**, enter a work title and an idea or observation, choose a type, then select **Save useful item**. Available types are Concept, Bug, Experiment, Workflow, Music, and Question. The latest captures appear in the list.
+- In **Capture → Shape → Test → Keep**, enter a work title and an idea or observation, choose a type, then select **Save useful item**. Available types are Concept, Bug, Experiment, Workflow, Music, and Question. The list renders at most the 30 newest captures; cleanup may retain up to 500 items, subject to deduplication and the selected budget.
 - In **Workflow queue**, enter a concrete next action and select **Add task**. Use its checkbox to mark a task complete.
 - **Start productive session** marks a session active. A session older than eight hours is cleared when the page loads again.
-- **Clean now** runs the cleanup routine. The **Persistent-data budget** selector offers 512 KB, 1 MB, 2 MB, and 5 MB. Cleanup removes duplicate captures, limits stored idea items to 500, trims older items when the selected budget is exceeded, and keeps at most 200 tasks. The page also removes temporary-tagged items older than 30 days.
+- **Clean now** runs the cleanup routine. The **Persistent-data budget** selector offers 512 KB, 1 MB, 2 MB, and 5 MB. Cleanup removes duplicate captures, trims older items when the selected budget is exceeded, and keeps at most 200 tasks. The page also removes temporary-tagged items older than 30 days.
+
+The **Stored data** figure and budget checks use the byte size of the serialized JSON state (`JSON.stringify(db)`, measured with `Blob`). This is an app-side estimate, not the browser's actual storage quota or total storage use.
 
 ## Export and import a backup
 
 - Select **Export my useful data** to download a JSON file named `personal-workflow-backup.json`.
-- To restore a backup, select **Import backup** and choose a JSON file. The file must contain `items` and `tasks` arrays. The app imports the data it recognizes and runs its cleanup routine.
+- To restore a backup, select **Import backup** and choose a JSON file. Import checks that the parsed JSON has top-level `items` and `tasks` arrays, but does not validate individual entries against a schema; it then runs cleanup.
 - Importing can replace the current saved items and tasks. Export the current data first if you may need to keep it. Cleanup in the app does not delete backup files you have already exported.
 
 ## Where your data lives
